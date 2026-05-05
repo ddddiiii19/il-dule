@@ -1,0 +1,19 @@
+{
+  "name": "il-dule",
+  "version": "1.0.0",
+  "description": "IL-DULE - Aplicativo web de gestión académica con IA · TEINCO 2026",
+  "private": true,
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "db:sync": "cd backend && npm run db:sync",
+    "build:frontend": "cd frontend && npm run build",
+    "start:backend": "cd backend && npm start"
+  },
+  "keywords": ["academico", "IA", "gestion", "estudiantes", "TEINCO"],
+  "author": "Semillero SIIANTEC - TEINCO 2026",
+  "license": "MIT"
+}

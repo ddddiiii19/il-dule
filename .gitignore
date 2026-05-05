@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files (NEVER commit these)
+.env
+backend/.env
+frontend/.env
+*.env.local
+*.env.production
+
+# Build output
+frontend/build/
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Coverage
+coverage/
+.nyc_output/
+
+# PM2
+ecosystem.config.js
+.pm2/
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.cache/
+
+.env copy
+backend/.env copy
+*.env copy
