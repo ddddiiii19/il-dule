@@ -7,7 +7,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ─────────────────────────────────────────────────────────────
 // POST /api/ai/chat
+// ─────────────────────────────────────────────────────────────
 const chat = async (req, res, next) => {
   try {
     const { mensaje, historial = [] } = req.body;
@@ -19,57 +21,111 @@ const chat = async (req, res, next) => {
       });
     }
 
-    // Get user's learning profile
+    // Obtener perfil de aprendizaje
     const perfil = await PerfilAprendizaje.findOne({
-      where: { usuario_id: req.usuario.id, completado: true },
+      where: {
+        usuario_id: req.usuario.id,
+        completado: true,
+      },
     });
 
-    // Get upcoming events (next 7 days)
+    // Obtener próximos eventos (7 días)
     const ahora = new Date();
-    const enSieteDias = new Date(ahora.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const enSieteDias = new Date(
+      ahora.getTime() + 7 * 24 * 60 * 60 * 1000
+    );
 
     const proximosEventos = await Evento.findAll({
       where: {
         usuario_id: req.usuario.id,
-        fecha_inicio: { [Op.between]: [ahora, enSieteDias] },
+        fecha_inicio: {
+          [Op.between]: [ahora, enSieteDias],
+        },
         completado: false,
       },
       order: [['fecha_inicio', 'ASC']],
       limit: 5,
     });
 
-    // Build context for AI
-    let contextoUsuario = `Eres IL-DULE, un asistente académico inteligente y empático diseñado para ayudar a estudiantes de secundaria y universidad en Colombia a organizarse mejor. Tu tono es amigable, motivador y conciso.`;
+    // ─────────────────────────────────────────────────────────
+    // Contexto del sistema
+    // ─────────────────────────────────────────────────────────
+    let contextoUsuario = `
+Eres IL-DULE, un asistente académico inteligente y empático.
 
-    contextoUsuario += `\n\nEstudiante: ${req.usuario.nombre}`;
+Ayudas a estudiantes de secundaria y universidad en Colombia
+a organizar tareas, estudiar mejor y reducir procrastinación.
+
+Tu tono debe ser:
+- amigable
+- motivador
+- claro
+- breve
+- útil
+
+Siempre responde en español.
+Máximo 200 palabras por respuesta.
+`;
+
+    contextoUsuario += `\nNombre del estudiante: ${req.usuario.nombre}`;
 
     if (perfil) {
-      contextoUsuario += `\nPerfil de aprendizaje: Estilo predominante ${perfil.estilo_predominante}.`;
-      contextoUsuario += `\nMétodos de estudio preferidos: ${perfil.metodos_preferidos.join(', ') || 'No especificados'}.`;
+      contextoUsuario += `
+      
+Perfil de aprendizaje:
+- Estilo predominante: ${perfil.estilo_predominante}
+- Métodos preferidos: ${
+        perfil.metodos_preferidos?.join(', ') || 'No especificados'
+      }
+`;
+
       if (perfil.nivel_procrastinacion) {
-        contextoUsuario += `\nNivel de procrastinación: ${perfil.nivel_procrastinacion}.`;
+        contextoUsuario += `
+- Nivel de procrastinación: ${perfil.nivel_procrastinacion}
+`;
       }
     }
 
     if (proximosEventos.length > 0) {
-      contextoUsuario += `\n\nEventos próximos (7 días):`;
+      contextoUsuario += `\nPróximos eventos importantes:\n`;
+
       proximosEventos.forEach((ev) => {
         const fecha = new Date(ev.fecha_inicio).toLocaleDateString('es-CO');
-        contextoUsuario += `\n- ${ev.titulo} (${ev.tipo}, prioridad ${ev.prioridad}) - ${fecha}`;
+
+        contextoUsuario += `
+- ${ev.titulo}
+  Tipo: ${ev.tipo}
+  Prioridad: ${ev.prioridad}
+  Fecha: ${fecha}
+`;
       });
     } else {
-      contextoUsuario += `\n\nEl estudiante no tiene eventos próximos en los próximos 7 días.`;
+      contextoUsuario += `
+      
+El estudiante no tiene eventos próximos en los siguientes 7 días.
+`;
     }
 
-    contextoUsuario += `\n\nResponde siempre en español. Sé específico y útil. Máximo 200 palabras por respuesta. Si el estudiante tiene eventos urgentes, menciónalo de forma amable.`;
-
-    // Build messages for OpenAI
+    // ─────────────────────────────────────────────────────────
+    // Construcción de mensajes
+    // ─────────────────────────────────────────────────────────
     const messages = [
-      { role: 'system', content: contextoUsuario },
-      ...historial.slice(-10), // Keep last 10 messages for context
-      { role: 'user', content: mensaje },
+      {
+        role: 'system',
+        content: contextoUsuario,
+      },
+
+      ...historial.slice(-10),
+
+      {
+        role: 'user',
+        content: mensaje,
+      },
     ];
 
+    // ─────────────────────────────────────────────────────────
+    // OpenAI Request
+    // ─────────────────────────────────────────────────────────
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
@@ -77,79 +133,162 @@ const chat = async (req, res, next) => {
       temperature: 0.7,
     });
 
-    const respuesta = completion.choices[0]?.message?.content || 'Lo siento, no pude procesar tu consulta.';
+    const respuesta =
+      completion?.choices?.[0]?.message?.content ||
+      'Lo siento, no pude procesar tu consulta.';
 
     return res.status(200).json({
       success: true,
       data: {
         respuesta,
-        tokens_usados: completion.usage?.total_tokens || 0,
+        tokens_usados: completion?.usage?.total_tokens || 0,
       },
     });
   } catch (error) {
+    console.error('❌ OpenAI Error:', error);
+
+    // Sin créditos / límite excedido
     if (error?.status === 429) {
       return res.status(429).json({
         success: false,
-        message: 'Límite de uso de IA alcanzado. Por favor intenta en unos minutos.',
+        message:
+          'La cuota de OpenAI fue excedida o no tienes créditos disponibles.',
       });
     }
+
+    // API Key inválida
     if (error?.status === 401) {
       return res.status(500).json({
         success: false,
-        message: 'Error de configuración del servicio de IA.',
+        message: 'API Key de OpenAI inválida o mal configurada.',
       });
     }
-    next(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error?.message || 'Error interno del servidor.',
+    });
   }
 };
 
-// POST /api/ai/sugerencias
+// ─────────────────────────────────────────────────────────────
+// GET /api/ai/sugerencias
+// ─────────────────────────────────────────────────────────────
 const getSugerencias = async (req, res, next) => {
   try {
     const perfil = await PerfilAprendizaje.findOne({
-      where: { usuario_id: req.usuario.id, completado: true },
+      where: {
+        usuario_id: req.usuario.id,
+        completado: true,
+      },
     });
 
     const pendientes = await Evento.count({
-      where: { usuario_id: req.usuario.id, completado: false },
+      where: {
+        usuario_id: req.usuario.id,
+        completado: false,
+      },
     });
 
-    let prompt = `Genera 3 sugerencias cortas y motivadoras de organización académica para el estudiante ${req.usuario.nombre}.`;
+    let prompt = `
+Genera exactamente 3 sugerencias cortas y motivadoras
+de organización académica para el estudiante ${req.usuario.nombre}.
+`;
 
     if (perfil) {
-      prompt += ` Su estilo de aprendizaje es ${perfil.estilo_predominante}.`;
+      prompt += `
+El estilo de aprendizaje del estudiante es:
+${perfil.estilo_predominante}.
+`;
     }
 
     if (pendientes > 0) {
-      prompt += ` Tiene ${pendientes} tareas pendientes.`;
+      prompt += `
+El estudiante tiene ${pendientes} tareas pendientes.
+`;
     }
 
-    prompt += ` Devuelve exactamente 3 sugerencias en formato JSON array: [{"titulo": "...", "descripcion": "..."}]. Sin markdown, solo JSON puro.`;
+    prompt += `
+Devuelve exclusivamente un JSON array válido.
+No uses markdown.
+
+Formato:
+[
+  {
+    "titulo": "...",
+    "descripcion": "..."
+  }
+]
+`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
       max_tokens: 300,
       temperature: 0.8,
     });
 
     let sugerencias = [];
+
     try {
-      const raw = completion.choices[0]?.message?.content || '[]';
-      const cleaned = raw.replace(/```json|```/g, '').trim();
+      const raw =
+        completion?.choices?.[0]?.message?.content || '[]';
+
+      const cleaned = raw
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+
       sugerencias = JSON.parse(cleaned);
-    } catch {
+    } catch (parseError) {
+      console.error('❌ Error parseando sugerencias:', parseError);
+
       sugerencias = [
-        { titulo: 'Técnica Pomodoro', descripcion: 'Trabaja 25 minutos y descansa 5.' },
-        { titulo: 'Planifica tu semana', descripcion: 'Reserva tiempo para cada materia.' },
-        { titulo: 'Prioriza tareas', descripcion: 'Empieza siempre por lo más urgente.' },
+        {
+          titulo: 'Técnica Pomodoro',
+          descripcion: 'Trabaja 25 minutos y descansa 5.',
+        },
+        {
+          titulo: 'Planifica tu semana',
+          descripcion: 'Reserva tiempo específico para cada materia.',
+        },
+        {
+          titulo: 'Prioriza tareas',
+          descripcion: 'Empieza primero por las tareas más urgentes.',
+        },
       ];
     }
 
-    return res.status(200).json({ success: true, data: { sugerencias } });
+    return res.status(200).json({
+      success: true,
+      data: {
+        sugerencias,
+      },
+    });
   } catch (error) {
-    next(error);
+    console.error('❌ Error IA sugerencias:', error);
+
+    if (error?.status === 429) {
+      return res.status(429).json({
+        success: false,
+        message:
+          'La cuota de OpenAI fue excedida o no tienes créditos disponibles.',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error?.message || 'Error interno del servidor.',
+    });
   }
 };
 
-module.exports = { chat, getSugerencias };
+module.exports = {
+  chat,
+  getSugerencias,
+};
