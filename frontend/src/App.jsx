@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/common/ProtectedRoute';
+
 import { useNotifications } from './hooks/useNotifications';
+import { requestFCMPermission } from './services/firebase';
 
 // Pages
 import Login from './pages/Login';
@@ -16,6 +19,11 @@ import './styles/global.css';
 
 function AppInner() {
   useNotifications();
+
+  useEffect(() => {
+    requestFCMPermission();
+  }, []);
+
   return null;
 }
 
@@ -24,6 +32,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppInner />
+
         <Routes>
           {/* Public */}
           <Route path="/login" element={<Login />} />
@@ -37,6 +46,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/tareas"
             element={
@@ -45,6 +55,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/calendario"
             element={
@@ -53,6 +64,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/ia"
             element={
@@ -61,6 +73,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
           <Route
             path="/encuesta"
             element={
