@@ -1,5 +1,7 @@
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
+/* eslint-disable no-undef */
+
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: "AIzaSyDJACAt-2YlxfAI92BLfO-ry5WIzqYJhQg",
@@ -13,13 +15,10 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('📩 Mensaje recibido:', payload);
+  console.log('Mensaje recibido:', payload);
 
-  self.registration.showNotification(
-    payload.notification.title,
-    {
-      body: payload.notification.body,
-      icon: '/logo192.png',
-    }
-  );
+  self.registration.showNotification(payload.notification.title, {
+    body: payload.notification.body,
+    icon: '/logo192.png',
+  });
 });
