@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { testConnection } = require('./config/database');
+const { sequelize, testConnection } = require('./config/database');
 
 // Import models (register with Sequelize)
 require('./models/Usuario');
@@ -54,12 +54,24 @@ app.use(errorHandler);
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 const startServer = async () => {
-  await testConnection();
-  app.listen(PORT, () => {
-    console.log(`\n🚀 IL-DULE Backend corriendo en http://localhost:${PORT}`);
-    console.log(`📚 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔐 JWT activado | 🤖 OpenAI integrado\n`);
-  });
+  try {
+    // ✅ Verificar conexión PostgreSQL
+    await testConnection();
+
+    // ✅ Sincronizar modelos con PostgreSQL
+    await sequelize.sync({ alter: true });
+
+    console.log('✅ Modelos sincronizados correctamente.');
+
+    // ✅ Iniciar servidor
+    app.listen(PORT, () => {
+      console.log(`\n🚀 IL-DULE Backend corriendo en http://localhost:${PORT}`);
+      console.log(`📚 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🔐 JWT activado | 🤖 OpenAI integrado\n`);
+    });
+  } catch (error) {
+    console.error('❌ Error al iniciar el servidor:', error);
+  }
 };
 
 startServer();
